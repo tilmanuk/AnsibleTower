@@ -1,8 +1,9 @@
 - name: Stop Windows Azure Guest Agent Service
-  hosts: windows
+  hosts: MicWilliPatrol
   gather_facts: no
   tasks:
     - name: Stop WindowsAzureGuestAgent service
       ansible.windows.win_service:
         name: WindowsAzureGuestAgent
+
         state: stopped
