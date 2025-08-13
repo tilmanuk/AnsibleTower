@@ -1,69 +1,44 @@
----
-- name: Retrieve MicWilliStores service ID from DWP
-  hosts: localhost
-  gather_facts: false
-  vars:
-    base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
-    login_payload:
-      loginId: "Liam"
-      password: "Password_1234"
-      appName: "dwp"
-      apiVersion: 19020000
-      locale: "en-US"
-      deviceToken: "dummyToken"
-      os: "Windows 10"
-      model: "Web Client"
-    search_payload:
-      queryName: "MYIT_ALL_SERVICES"
-      attributes:
-        ServiceAvailability:
-          - id
-          - linkedServiceId
-          - linkedServiceName
-          - name
-          - annotation
-          - status
-          - externalStatus
-          - isEnabled
-          - statusIsManual
-    target_service_name: "MicWilliStores"
+- name: Login to DWP and get token
+  ansible.builtin.uri:
+    url: https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest/users/sessions/login
+    method: POST
+    headers:
+      X-Requested-By: Ansible
+      Content-Type: application/json
+    body: |
+      {
+        "loginId": "Liam",
+        "password": "Password_1234",
+        "appName": "dwp",
+        "apiVersion": 19020000,
+        "locale": "en-US",
+        "deviceToken": "dummyToken",
+        "os": "Windows 10",
+        "model": "Web Client"
+      }
+    body_format: json
+    return_content: yes
+  register: login_response
 
-  tasks:
-    - name: Login to DWP and get cookies
-      ansible.builtin.uri:
-        url: "{{ base_url }}/users/sessions/login"
-        method: POST
-        headers:
-          Content-Type: "application/json; charset=UTF-8"
-          X-Requested-By: "XMLHttpRequest"
-        body: "{{ login_payload }}"
-        body_format: json
-        return_content: yes
-        status_code: 200
-      register: login_response
+- name: Store AR-JWT token
+  set_fact:
+    ar_jwt_token: "{{ login_response.json.token }}"
 
-    - name: Store cookies for subsequent requests
-      set_fact:
-        dwp_cookies: "{{ login_response.cookies }}"
-
-    - name: Query MYIT_ALL_SERVICES
-      ansible.builtin.uri:
-        url: "{{ base_url }}/search"
-        method: POST
-        headers:
-          Content-Type: "application/json; charset=UTF-8"
-          X-Requested-By: "XMLHttpRequest"
-        body: "{{ search_payload }}"
-        body_format: json
-        return_content: yes
-        status_code: 200
-        cookies: "{{ dwp_cookies }}"
-      register: search_response
-
-    - name: Extract service ID for MicWilliStores
-      set_fact:
-        micwilli_id: "{{ (search_response.json[0].items | selectattr('name', 'equalto', target_service_name) | list)[0].id }}"
-
-    - name: Show MicWilliStores ID
-      ansible.builtin.debug:
-        msg: "Service '{{ target_service_name }}' has ID: {{ micwilli_id }}"
+- name: Query MYIT_ALL_SERVICES with token
+  ansible.builtin.uri:
+    url: https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest/search
+    method: POST
+    headers:
+      X-Requested-By: Ansible
+      Content-Type: application/json
+      Authorization: "AR-JWT {{ ar_jwt_token }}"
+    body: |
+      {
+        "queryName": "MYIT_ALL_SERVICES",
+        "attributes": {
+          "ServiceAvailability": ["id", "name", "status"]
+        }
+      }
+    body_format: json
+    return_content: yes
+  register: search_response
