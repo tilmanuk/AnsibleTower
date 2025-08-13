@@ -69,16 +69,11 @@
       debug:
         msg: "{{ services_response.json }}"
 
-    - name: Find target service ID safely
+    - name: Find target service ID using json_query
       set_fact:
         target_service_id: >-
-          {{ (services_response.json[0].items
-              | default([])
-              | selectattr('name', 'equalto', target_service_name)
-              | map(attribute='id')
-              | list
-              | first)
-             | default(None) }}
+          {{ services_response.json[0].items
+             | json_query("[?name=='" + target_service_name + "'].id | [0]") | first }}
 
     - name: Fail if target service not found
       fail:
