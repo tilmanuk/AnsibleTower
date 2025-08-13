@@ -1,16 +1,15 @@
 ---
-- name: Update MicWilliStores service availability
+- name: Retrieve MicWilliStores service ID from DWP
   hosts: localhost
   gather_facts: false
   vars:
     dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
-    service_name: "MicWilliStores"
-    new_status: 10
+    target_service_name: "MicWilliStores"
 
   tasks:
-    - name: Login to DWP and get cookies
+    - name: Login to DWP and get session cookie
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
         method: POST
@@ -28,11 +27,12 @@
           os: "Windows 10"
           model: "Web Client"
         return_content: yes
+        status_code: 200
       register: login_response
 
-    - name: Extract session cookie from headers
+    - name: Extract DWP session cookie
       set_fact:
-        dwp_cookie_header: "{{ login_response.headers['Set-Cookie'].split(';')[0] }}"
+        dwp_cookie_header: "{{ login_response.cookies | dict2items | first.key ~ '=' ~ login_response.cookies[login_response.cookies | dict2items | first.key] }}"
 
     - name: Query MYIT_ALL_SERVICES
       ansible.builtin.uri:
@@ -46,7 +46,7 @@
         body:
           queryName: "MYIT_ALL_SERVICES"
           attributes:
-            ServiceAvailability: 
+            ServiceAvailability:
               - id
               - linkedServiceId
               - linkedServiceName
@@ -57,32 +57,17 @@
               - isEnabled
               - statusIsManual
         return_content: yes
+        status_code: 200
       register: services_response
 
-    - name: Parse services JSON
+    - name: Parse JSON response
       set_fact:
         services_list: "{{ services_response.json.items }}"
 
-    - name: Find ID for MicWilliStores
+    - name: Find MicWilliStores service
       set_fact:
-        micwilli_id: "{{ (services_list | selectattr('name','equalto',service_name) | list)[0].id }}"
+        micwilli_service_id: "{{ services_list | selectattr('name','equalto', target_service_name) | map(attribute='id') | first }}"
 
-    - name: Show MicWilliStores ID
+    - name: Show MicWilliStores service ID
       ansible.builtin.debug:
-        msg: "MicWilliStores service ID is {{ micwilli_id }}"
-
-    - name: Update MicWilliStores availability
-      ansible.builtin.uri:
-        url: "{{ dwp_base_url }}/update"
-        method: POST
-        headers:
-          X-Requested-By: "XMLHttpRequest"
-          Content-Type: "application/json; charset=UTF-8"
-          Cookie: "{{ dwp_cookie_header }}"
-        body_format: json
-        body:
-          ServiceAvailability:
-            id: "{{ micwilli_id }}"
-            changes:
-              status: "{{ new_status }}"
-        status_code: 200
+        msg: "Service ID for {{ target_service_name }} is {{ micwilli_service_id }}"
