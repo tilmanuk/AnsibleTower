@@ -30,9 +30,9 @@
         return_content: yes
       register: login_response
 
-    - name: Extract session cookie
+    - name: Extract session cookie from headers
       set_fact:
-        dwp_cookies: "{{ login_response.cookies }}"
+        dwp_cookie_header: "{{ login_response.headers['Set-Cookie'].split(';')[0] }}"
 
     - name: Query MYIT_ALL_SERVICES
       ansible.builtin.uri:
@@ -41,6 +41,7 @@
         headers:
           X-Requested-By: "XMLHttpRequest"
           Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ dwp_cookie_header }}"
         body_format: json
         body:
           queryName: "MYIT_ALL_SERVICES"
@@ -56,7 +57,6 @@
               - isEnabled
               - statusIsManual
         return_content: yes
-        cookies: "{{ dwp_cookies }}"
       register: services_response
 
     - name: Parse services JSON
@@ -66,7 +66,7 @@
     - name: Find ID for MicWilliStores
       set_fact:
         micwilli_id: "{{ (services_list | selectattr('name','equalto',service_name) | list)[0].id }}"
-        
+
     - name: Show MicWilliStores ID
       ansible.builtin.debug:
         msg: "MicWilliStores service ID is {{ micwilli_id }}"
@@ -78,11 +78,11 @@
         headers:
           X-Requested-By: "XMLHttpRequest"
           Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ dwp_cookie_header }}"
         body_format: json
         body:
           ServiceAvailability:
             id: "{{ micwilli_id }}"
             changes:
               status: "{{ new_status }}"
-        cookies: "{{ dwp_cookies }}"
         status_code: 200
