@@ -84,6 +84,10 @@
              | first) | default(None)
           }}
 
+    - name: Show target service ID
+      debug:
+        msg: "The target service '{{ target_service_name }}' has ID '{{ target_service_id }}'"
+
     - name: Fail if target service not found
       ansible.builtin.fail:
         msg: "Target service '{{ target_service_name }}' not found."
