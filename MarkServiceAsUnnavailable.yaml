@@ -1,89 +1,88 @@
 ---
-- name: Update availability of MicWilliStores service
+- name: Update MicWilliStores service availability
   hosts: localhost
   gather_facts: false
   vars:
     dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    username: "Liam"
+    password: "Password_1234"
+    service_name: "MicWilliStores"
+    new_status: 10
 
   tasks:
-
-    - name: Login to DWP and get token
+    - name: Login to DWP and get cookies
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
         method: POST
         headers:
-          X-Requested-By: Ansible
-          Content-Type: application/json
-        body: |
-          {
-            "loginId": "Liam",
-            "password": "Password_1234",
-            "appName": "dwp",
-            "apiVersion": 19020000,
-            "locale": "en-US",
-            "deviceToken": "dummyToken",
-            "os": "Windows 10",
-            "model": "Web Client"
-          }
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
         body_format: json
+        body:
+          loginId: "{{ username }}"
+          password: "{{ password }}"
+          appName: "dwp"
+          apiVersion: 19020000
+          locale: "en-US"
+          deviceToken: "dummyToken"
+          os: "Windows 10"
+          model: "Web Client"
         return_content: yes
       register: login_response
 
-    - name: Store AR-JWT token
+    - name: Extract session cookie
       set_fact:
-        ar_jwt_token: "{{ login_response.json.token }}"
+        dwp_cookies: "{{ login_response.cookies }}"
 
-    - name: Query MYIT_ALL_SERVICES for services
+    - name: Query MYIT_ALL_SERVICES
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/search"
         method: POST
         headers:
-          X-Requested-By: Ansible
-          Content-Type: application/json
-          Authorization: "AR-JWT {{ ar_jwt_token }}"
-        body: |
-          {
-            "queryName": "MYIT_ALL_SERVICES",
-            "attributes": {
-              "ServiceAvailability": ["id", "name", "status"]
-            }
-          }
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
         body_format: json
+        body:
+          queryName: "MYIT_ALL_SERVICES"
+          attributes:
+            ServiceAvailability: 
+              - id
+              - linkedServiceId
+              - linkedServiceName
+              - name
+              - annotation
+              - status
+              - externalStatus
+              - isEnabled
+              - statusIsManual
         return_content: yes
-      register: search_response
+        cookies: "{{ dwp_cookies }}"
+      register: services_response
 
-    - name: Extract MicWilliStores service ID
+    - name: Parse services JSON
       set_fact:
-        mic_service_id: >-
-          {{
-            (search_response.json.items[0].items | selectattr('name','equalto','MicWilliStores') | list)[0].id
-          }}
+        services_list: "{{ services_response.json.items }}"
 
-    - name: Show found service ID
+    - name: Find ID for MicWilliStores
+      set_fact:
+        micwilli_id: "{{ (services_list | selectattr('name','equalto',service_name) | list)[0].id }}"
+        
+    - name: Show MicWilliStores ID
       ansible.builtin.debug:
-        msg: "MicWilliStores service ID is {{ mic_service_id }}"
+        msg: "MicWilliStores service ID is {{ micwilli_id }}"
 
-    - name: Update MicWilliStores availability to 10
+    - name: Update MicWilliStores availability
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/update"
         method: POST
         headers:
-          X-Requested-By: Ansible
-          Content-Type: application/json
-          Authorization: "AR-JWT {{ ar_jwt_token }}"
-        body: |
-          {
-            "ServiceAvailability": {
-              "id": "{{ mic_service_id }}",
-              "changes": {
-                "status": 10
-              }
-            }
-          }
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
         body_format: json
-        return_content: yes
-      register: update_response
-
-    - name: Show update response
-      ansible.builtin.debug:
-        var: update_response.json
+        body:
+          ServiceAvailability:
+            id: "{{ micwilli_id }}"
+            changes:
+              status: "{{ new_status }}"
+        cookies: "{{ dwp_cookies }}"
+        status_code: 200
