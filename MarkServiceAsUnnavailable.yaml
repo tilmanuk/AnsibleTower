@@ -1,4 +1,4 @@
-- name: Mark a DWP Service as Unavailable
+- name: Mark a DWP Service as Unavailable (flatten + search)
   hosts: localhost
   gather_facts: false
   vars:
@@ -65,20 +65,25 @@
         status_code: 200
       register: services_response
 
-    - name: Show retrieved services JSON
-      debug:
-        msg: "{{ services_response.json }}"
+    - name: Flatten JSON content using to_paths
+      set_fact:
+        flat_services: "{{ lookup('ansible.utils.to_paths', services_response.json) }}"
 
-    - name: Find target service ID using json_query
+    - name: Find the service ID by name
       set_fact:
         target_service_id: >-
-          {{ services_response.json[0].items
-             | json_query("[?name=='" + target_service_name + "'].id | [0]") | first }}
+          {{ flat_services
+             | selectattr('value','equalto', target_service_name)
+             | map(attribute='path')
+             | map('regex_replace','\\.name$','\\.id')
+             | map('extract', services_response.json)
+             | first
+          }}
 
     - name: Fail if target service not found
       fail:
         msg: "Service '{{ target_service_name }}' not found in retrieved services."
-      when: target_service_id is none
+      when: target_service_id is not defined or target_service_id is none
 
     - name: Mark target service as unavailable
       ansible.builtin.uri:
