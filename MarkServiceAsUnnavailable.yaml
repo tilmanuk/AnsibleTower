@@ -1,0 +1,63 @@
+- name: Update availability of MicWilliStores service
+  hosts: localhost
+  gather_facts: no
+  vars:
+    base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    username: "Liam"
+    password: "Password_1234"
+
+  tasks:
+    - name: Authenticate to DWP and store cookies
+      ansible.builtin.uri:
+        url: "{{ base_url }}/users/sessions/login"
+        method: POST
+        headers:
+          X-Requested-By: XMLHttpRequest
+          Content-Type: application/json; charset=UTF-8
+        body_format: json
+        body:
+          loginId: "{{ username }}"
+          password: "{{ password }}"
+          appName: "dwp"
+          apiVersion: 19020000
+          locale: "en-US"
+          deviceToken: "dummyToken"
+          os: "Windows 10"
+          model: "Web Client"
+        status_code: 200
+        return_content: yes
+        cookies: dwp_cookies
+      register: login_response
+
+    - name: Search for MicWilliStores service
+      ansible.builtin.uri:
+        url: "{{ base_url }}/serviceavailability"
+        method: GET
+        headers:
+          X-Requested-By: XMLHttpRequest
+        cookies: "{{ login_response.cookies }}"
+        return_content: yes
+      register: service_list
+
+    - name: Extract MicWilliStores service ID
+      ansible.builtin.set_fact:
+        target_service_id: >-
+          {{ (service_list.json.ServiceAvailability
+              | selectattr('name', 'equalto', 'MicWilliStores')
+              | list)[0].id }}
+
+    - name: Update MicWilliStores service availability to 10
+      ansible.builtin.uri:
+        url: "{{ base_url }}/update"
+        method: POST
+        headers:
+          X-Requested-By: XMLHttpRequest
+          Content-Type: application/json; charset=UTF-8
+        cookies: "{{ login_response.cookies }}"
+        body_format: json
+        body:
+          ServiceAvailability:
+            id: "{{ target_service_id }}"
+            changes:
+              status: 10
+        status_code: 200
