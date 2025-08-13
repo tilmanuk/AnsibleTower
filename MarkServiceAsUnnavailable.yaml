@@ -41,18 +41,23 @@
         use_cookies: yes
       register: service_list
 
-    - name: Extract MicWilliStores service ID
+    - name: Extract MicWilliStores service ID (if exists)
       ansible.builtin.set_fact:
         target_service_id: >-
           {{ (service_list.json.ServiceAvailability
               | selectattr('name', 'equalto', 'MicWilliStores')
-              | list)[0].id }}
+              | list)[0].id | default(None) }}
 
     - name: Show found service ID
       ansible.builtin.debug:
-        msg: "MicWilliStores service ID is {{ target_service_id }}"
+        msg: >-
+          {% if target_service_id %}
+            MicWilliStores service ID is {{ target_service_id }}
+          {% else %}
+            MicWilliStores service not found
+          {% endif %}
 
-    - name: Update MicWilliStores service availability to 10
+    - name: Update MicWilliStores service availability to 10 (only if found)
       ansible.builtin.uri:
         url: "{{ dwp_url }}/dwp/rest/update"
         method: POST
@@ -67,8 +72,10 @@
               status: 10
         status_code: 200
         use_cookies: yes
+      when: target_service_id is not none
       register: update_response
 
-    - name: Show update result
+    - name: Show update result (if service was updated)
       ansible.builtin.debug:
         var: update_response.json
+      when: target_service_id is not none
