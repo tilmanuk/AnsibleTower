@@ -5,5 +5,4 @@
     - name: Start WindowsAzureGuestAgent service
       ansible.windows.win_service:
         name: WindowsAzureGuestAgent
-
         state: started

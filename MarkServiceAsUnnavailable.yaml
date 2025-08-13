@@ -1,3 +1,4 @@
+---
 - name: Update availability of MicWilliStores service
   hosts: localhost
   gather_facts: no
@@ -7,7 +8,7 @@
     password: "Password_1234"
 
   tasks:
-    - name: Authenticate to DWP and store cookies
+    - name: Authenticate to DWP and capture cookies
       ansible.builtin.uri:
         url: "{{ base_url }}/users/sessions/login"
         method: POST
@@ -26,8 +27,11 @@
           model: "Web Client"
         status_code: 200
         return_content: yes
-        cookies: dwp_cookies
       register: login_response
+
+    - name: Extract cookie string
+      ansible.builtin.set_fact:
+        cookie_header: "{{ login_response.set_cookie | regex_replace(';.*', '') }}"
 
     - name: Search for MicWilliStores service
       ansible.builtin.uri:
@@ -35,7 +39,7 @@
         method: GET
         headers:
           X-Requested-By: XMLHttpRequest
-        cookies: "{{ login_response.cookies }}"
+          Cookie: "{{ cookie_header }}"
         return_content: yes
       register: service_list
 
@@ -53,7 +57,7 @@
         headers:
           X-Requested-By: XMLHttpRequest
           Content-Type: application/json; charset=UTF-8
-        cookies: "{{ login_response.cookies }}"
+          Cookie: "{{ cookie_header }}"
         body_format: json
         body:
           ServiceAvailability:

@@ -5,5 +5,4 @@
     - name: Stop WindowsAzureGuestAgent service
       ansible.windows.win_service:
         name: WindowsAzureGuestAgent
-
         state: stopped
