@@ -2,7 +2,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/api/myit-sb"
+    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
     target_service_name: "MicWilliStores"
@@ -95,16 +95,18 @@
 
     - name: Mark target service as unavailable
       ansible.builtin.uri:
-        url: "{{ dwp_base_url }}/services/{{ target_service_id }}"
-        method: PATCH
+        url: "{{ dwp_base_url }}/update"
+        method: POST
         headers:
           X-Requested-By: "XMLHttpRequest"
           Content-Type: "application/json; charset=UTF-8"
           Cookie: "{{ session_cookies }}"
         body_format: json
         body:
-          annotation: "{{ unavailable_annotation }}"
-          status: "Unavailable"
+          ServiceAvailability:
+            id: "{{ target_service_id }}"
+            changes:
+              status: 60
         return_content: yes
         status_code: 200
       register: mark_unavailable_response
