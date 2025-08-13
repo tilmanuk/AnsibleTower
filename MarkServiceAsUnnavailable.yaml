@@ -27,7 +27,6 @@
           model: "Web Client"
         return_content: yes
         status_code: 200
-        use_cookies: yes
       register: login_response
 
     - name: Search for MicWilliStores service
@@ -38,7 +37,6 @@
           X-Requested-By: XMLHttpRequest
         return_content: yes
         status_code: 200
-        use_cookies: yes
       register: service_list
 
     - name: Extract MicWilliStores service ID (if exists)
@@ -71,7 +69,6 @@
             changes:
               status: 10
         status_code: 200
-        use_cookies: yes
       when: target_service_id is not none
       register: update_response
 
