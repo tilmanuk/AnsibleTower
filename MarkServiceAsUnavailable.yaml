@@ -1,0 +1,116 @@
+- name: Mark a DWP Service as Unavailable
+  hosts: localhost
+  gather_facts: false
+  vars:
+    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    username: "Liam"
+    password: "Password_1234"
+    target_service_name: "MicWilliStores"
+    unavailable_annotation: "Marked unavailable by Ansible"
+
+  tasks:
+
+    - name: Login to DWP and store cookies
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/users/sessions/login"
+        method: POST
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+        body_format: json
+        body:
+          loginId: "{{ username }}"
+          password: "{{ password }}"
+          appName: "dwp"
+          apiVersion: 19020000
+          locale: "en-US"
+          deviceToken: "dummyToken"
+          os: "Windows 10"
+          model: "Web Client"
+        return_content: yes
+        status_code: 200
+      register: login_response
+
+    - name: Extract session cookies from login
+      set_fact:
+        session_cookies: >-
+          {{ login_response.cookies | dict2items 
+             | map(attribute='key') 
+             | zip(login_response.cookies | dict2items | map(attribute='value')) 
+             | map('join', '=') 
+             | join('; ') }}
+
+    - name: Retrieve all services (MYIT_ALL_SERVICES) with retries
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/search"
+        method: POST
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ session_cookies }}"
+        body_format: json
+        body:
+          queryName: "MYIT_ALL_SERVICES"
+          attributes:
+            ServiceAvailability:
+              - id
+              - linkedServiceId
+              - linkedServiceName
+              - name
+              - annotation
+              - status
+              - externalStatus
+              - isEnabled
+              - statusIsManual
+        return_content: yes
+        status_code: 200
+      register: services_response
+      retries: 3
+      delay: 5
+      until: services_response.status == 200
+
+    - name: Show retrieved services JSON
+      ansible.builtin.debug:
+        msg: "{{ services_response.json }}"
+
+    - name: Find target service ID safely
+      set_fact:
+        target_service_id: >-
+          {{
+            (services_response.json[0]['items'] | default([])
+             | selectattr('name', 'equalto', target_service_name)
+             | map(attribute='id')
+             | list
+             | first) | default(None)
+          }}
+
+    - name: Show target service ID
+      debug:
+        msg: "The target service '{{ target_service_name }}' has ID '{{ target_service_id }}'"
+
+    - name: Fail if target service not found
+      ansible.builtin.fail:
+        msg: "Target service '{{ target_service_name }}' not found."
+      when: target_service_id is none
+
+    - name: Mark target service as unavailable
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/update"
+        method: POST
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ session_cookies }}"
+        body_format: json
+        body:
+          ServiceAvailability:
+            id: "{{ target_service_id }}"
+            changes:
+              status: 60
+        return_content: yes
+        status_code: 200
+      register: mark_unavailable_response
+
+    - name: Show response from marking service unavailable
+      ansible.builtin.debug:
+        msg: "{{ mark_unavailable_response.json }}"
