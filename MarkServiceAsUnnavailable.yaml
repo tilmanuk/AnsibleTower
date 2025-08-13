@@ -1,4 +1,4 @@
-- name: Login and query DWP using cookies
+- name: Mark a DWP Service as Unavailable
   hosts: localhost
   gather_facts: false
   vars:
@@ -6,9 +6,10 @@
     username: "Liam"
     password: "Password_1234"
     target_service_name: "MicWilliStores"
+    unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
-    - name: Login to DWP and store headers
+    - name: Login to DWP and store cookies
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
         method: POST
@@ -29,12 +30,12 @@
         status_code: 200
       register: login_response
 
-    - name: Extract session cookies from response
+    - name: Extract session cookies from login
       set_fact:
         session_cookies: >-
           {{ login_response.cookies | dict2items | map(attribute='key') | zip(login_response.cookies | dict2items | map(attribute='value')) | map('join', '=') | join('; ') }}
 
-    - name: Query MYIT_ALL_SERVICES using session cookies
+    - name: Retrieve all services (MYIT_ALL_SERVICES)
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/search"
         method: POST
@@ -60,10 +61,26 @@
         status_code: 200
       register: services_response
 
-    - name: Find MicWilliStores service
+    - name: Find target service ID
       set_fact:
-        micwilli_service_id: "{{ services_response.json.items | selectattr('name','equalto', target_service_name) | map(attribute='id') | first }}"
+        target_service_id: "{{ services_response.json.items | selectattr('name','equalto', target_service_name) | map(attribute='id') | first }}"
 
-    - name: Show MicWilliStores service ID
+    - name: Mark target service as unavailable
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/services/{{ target_service_id }}"
+        method: PATCH
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ session_cookies }}"
+        body_format: json
+        body:
+          annotation: "{{ unavailable_annotation }}"
+          status: "Unavailable"
+        return_content: yes
+        status_code: 200
+      register: mark_unavailable_response
+
+    - name: Show response from marking service unavailable
       ansible.builtin.debug:
-        msg: "Service ID for {{ target_service_name }} is {{ micwilli_service_id }}"
+        msg: "{{ mark_unavailable_response.json }}"
