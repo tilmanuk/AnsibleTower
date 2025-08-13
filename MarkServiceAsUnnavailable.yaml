@@ -73,21 +73,25 @@
       ansible.builtin.debug:
         msg: "{{ services_response.json }}"
 
-    - name: Find target service ID safely
-      set_fact:
-        target_service_id: >-
-          {{
-            (services_response.json[0].items | default([])
-             | selectattr('name', 'equalto', target_service_name)
-             | map(attribute='id')
-             | list
-             | first) | default(None)
-          }}
+- name: Find target service ID safely
+  set_fact:
+    target_service_id: >-
+      {{ (services_response.json[0].items
+          | default([]) 
+          | selectattr('name', 'equalto', target_service_name) 
+          | map(attribute='id') 
+          | list 
+          | first) 
+         | default(None) }}
+         
+- name: Show extracted service ID
+  debug:
+    msg: "Target service ID is {{ target_service_id }}"
 
-    - name: Fail if target service not found
-      ansible.builtin.fail:
-        msg: "Target service '{{ target_service_name }}' not found."
-      when: target_service_id is none
+- name: Fail if target service not found
+  ansible.builtin.fail:
+    msg: "Target service '{{ target_service_name }}' not found."
+  when: target_service_id is none
 
     - name: Mark target service as unavailable
       ansible.builtin.uri:
