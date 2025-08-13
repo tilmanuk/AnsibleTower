@@ -1,66 +1,86 @@
----
-- name: Mark a DWP service as unavailable
+- name: Mark a DWP Service as Unavailable
   hosts: localhost
   gather_facts: false
   vars:
-    dwp_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
-    login_payload:
-      loginId: "Liam"
-      password: "Password_1234"
-      appName: "dwp"
-      apiVersion: 19020000
-      locale: "en-US"
-      deviceToken: "dummyToken"
-      os: "Windows 10"
-      model: "Web Client"
+    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    username: "Liam"
+    password: "Password_1234"
     target_service_name: "MicWilliStores"
+    unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
     - name: Login to DWP and store cookies
-      ansible.builtin.shell: >
-        curl -s -c cookies.txt -H 'X-Requested-By: XMLHttpRequest'
-        -H 'Content-Type: application/json; charset=UTF-8'
-        -X POST "{{ dwp_url }}/users/sessions/login"
-        -d '{{ login_payload | to_json }}'
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/users/sessions/login"
+        method: POST
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+        body_format: json
+        body:
+          loginId: "{{ username }}"
+          password: "{{ password }}"
+          appName: "dwp"
+          apiVersion: 19020000
+          locale: "en-US"
+          deviceToken: "dummyToken"
+          os: "Windows 10"
+          model: "Web Client"
+        return_content: yes
+        status_code: 200
       register: login_response
-      changed_when: false
 
-    - name: Ensure login was successful
-      assert:
-        that:
-          - '"HTTP/1.1 200" in login_response.stdout'
-        fail_msg: "Login failed. Check credentials or DWP endpoint."
-
-    - name: Query MYIT_ALL_SERVICES
-      ansible.builtin.shell: >
-        curl -s -b cookies.txt -H 'X-Requested-By: XMLHttpRequest'
-        -H 'Content-Type: application/json; charset=UTF-8'
-        -X POST "{{ dwp_url }}/search"
-        -d '{
-              "queryName": "MYIT_ALL_SERVICES",
-              "attributes": {
-                "ServiceAvailability": [
-                  "id", "linkedServiceId", "linkedServiceName", "name", 
-                  "annotation", "status", "externalStatus", "isEnabled", "statusIsManual"
-                ]
-              }
-            }'
-      register: services_response
-      changed_when: false
-
-    - name: Parse JSON response
+    - name: Extract session cookies from login
       set_fact:
-        services_list: "{{ services_response.stdout | from_json }}"
+        session_cookies: >-
+          {{ login_response.cookies | dict2items | map(attribute='key') | zip(login_response.cookies | dict2items | map(attribute='value')) | map('join', '=') | join('; ') }}
+
+    - name: Retrieve all services (MYIT_ALL_SERVICES)
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/search"
+        method: POST
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ session_cookies }}"
+        body_format: json
+        body:
+          queryName: "MYIT_ALL_SERVICES"
+          attributes:
+            ServiceAvailability:
+              - id
+              - linkedServiceId
+              - linkedServiceName
+              - name
+              - annotation
+              - status
+              - externalStatus
+              - isEnabled
+              - statusIsManual
+        return_content: yes
+        status_code: 200
+      register: services_response
 
     - name: Find target service ID
       set_fact:
-        target_service_id: "{{ services_list | selectattr('name','equalto', target_service_name) | map(attribute='id') | first | default(None) }}"
+        target_service_id: "{{ services_response.json.items | selectattr('name','equalto', target_service_name) | map(attribute='id') | first }}"
 
-    - name: Fail if target service not found
-      fail:
-        msg: "Target service '{{ target_service_name }}' not found in MYIT_ALL_SERVICES."
-      when: target_service_id is none
+    - name: Mark target service as unavailable
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/services/{{ target_service_id }}"
+        method: PATCH
+        headers:
+          X-Requested-By: "XMLHttpRequest"
+          Content-Type: "application/json; charset=UTF-8"
+          Cookie: "{{ session_cookies }}"
+        body_format: json
+        body:
+          annotation: "{{ unavailable_annotation }}"
+          status: "Unavailable"
+        return_content: yes
+        status_code: 200
+      register: mark_unavailable_response
 
-    - name: Display the target service ID
-      debug:
-        msg: "Target service ID for '{{ target_service_name }}' is {{ target_service_id }}"
+    - name: Show response from marking service unavailable
+      ansible.builtin.debug:
+        msg: "{{ mark_unavailable_response.json }}"
