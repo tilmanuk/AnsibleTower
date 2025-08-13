@@ -30,9 +30,13 @@
         status_code: 200
       register: login_response
 
-    - name: Extract DWP session cookie
+    - name: Convert cookies dict to list
       set_fact:
-        dwp_cookie_header: "{{ login_response.cookies | dict2items | first.key ~ '=' ~ login_response.cookies[login_response.cookies | dict2items | first.key] }}"
+        cookies_list: "{{ login_response.cookies | dict2items }}"
+
+    - name: Extract first cookie
+      set_fact:
+        dwp_cookie_header: "{{ cookies_list[0].key }}={{ cookies_list[0].value }}"
 
     - name: Query MYIT_ALL_SERVICES
       ansible.builtin.uri:
