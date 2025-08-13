@@ -1,5 +1,4 @@
----
-- name: Retrieve MicWilliStores service ID from DWP
+- name: Login and query DWP using cookies
   hosts: localhost
   gather_facts: false
   vars:
@@ -9,7 +8,7 @@
     target_service_name: "MicWilliStores"
 
   tasks:
-    - name: Login to DWP and get AR-JWT token
+    - name: Login to DWP and store headers
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
         method: POST
@@ -30,18 +29,19 @@
         status_code: 200
       register: login_response
 
-    - name: Extract AR-JWT token from login response
+    - name: Extract session cookies from response
       set_fact:
-        ar_jwt_token: "{{ login_response.json.token }}"
+        session_cookies: >-
+          {{ login_response.cookies | dict2items | map(attribute='key') | zip(login_response.cookies | dict2items | map(attribute='value')) | map('join', '=') | join('; ') }}
 
-    - name: Query MYIT_ALL_SERVICES using AR-JWT token
+    - name: Query MYIT_ALL_SERVICES using session cookies
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/search"
         method: POST
         headers:
           X-Requested-By: "XMLHttpRequest"
           Content-Type: "application/json; charset=UTF-8"
-          Authorization: "AR-JWT {{ ar_jwt_token }}"
+          Cookie: "{{ session_cookies }}"
         body_format: json
         body:
           queryName: "MYIT_ALL_SERVICES"
@@ -60,13 +60,9 @@
         status_code: 200
       register: services_response
 
-    - name: Parse JSON response
-      set_fact:
-        services_list: "{{ services_response.json.items }}"
-
     - name: Find MicWilliStores service
       set_fact:
-        micwilli_service_id: "{{ services_list | selectattr('name','equalto', target_service_name) | map(attribute='id') | first }}"
+        micwilli_service_id: "{{ services_response.json.items | selectattr('name','equalto', target_service_name) | map(attribute='id') | first }}"
 
     - name: Show MicWilliStores service ID
       ansible.builtin.debug:
