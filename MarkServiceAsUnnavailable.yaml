@@ -9,7 +9,7 @@
     target_service_name: "MicWilliStores"
 
   tasks:
-    - name: Login to DWP and get session cookie
+    - name: Login to DWP and get AR-JWT token
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
         method: POST
@@ -30,22 +30,18 @@
         status_code: 200
       register: login_response
 
-    - name: Convert cookies dict to list
+    - name: Extract AR-JWT token from login response
       set_fact:
-        cookies_list: "{{ login_response.cookies | dict2items }}"
+        ar_jwt_token: "{{ login_response.json.token }}"
 
-    - name: Extract first cookie
-      set_fact:
-        dwp_cookie_header: "{{ cookies_list[0].key }}={{ cookies_list[0].value }}"
-
-    - name: Query MYIT_ALL_SERVICES
+    - name: Query MYIT_ALL_SERVICES using AR-JWT token
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/search"
         method: POST
         headers:
           X-Requested-By: "XMLHttpRequest"
           Content-Type: "application/json; charset=UTF-8"
-          Cookie: "{{ dwp_cookie_header }}"
+          Authorization: "AR-JWT {{ ar_jwt_token }}"
         body_format: json
         body:
           queryName: "MYIT_ALL_SERVICES"
