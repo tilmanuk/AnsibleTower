@@ -1,78 +1,57 @@
 ---
 - name: Update availability of MicWilliStores service
   hosts: localhost
-  gather_facts: no
+  gather_facts: false
   vars:
-    dwp_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
-    dwp_user: "Liam"
-    dwp_pass: "Password_1234"
+    base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    username: "Liam"
+    password: "Password_1234"
+    target_service_name: "MicWilliStores"
 
   tasks:
-    - name: Authenticate to DWP and store cookies
-      ansible.builtin.uri:
-        url: "{{ dwp_url }}/dwp/rest/users/sessions/login"
-        method: POST
-        headers:
-          X-Requested-By: XMLHttpRequest
-          Content-Type: application/json; charset=UTF-8
-        body_format: json
-        body:
-          loginId: "{{ dwp_user }}"
-          password: "{{ dwp_pass }}"
-          appName: "dwp"
-          apiVersion: 19020000
-          locale: "en-US"
-          deviceToken: "dummyToken"
-          os: "Windows 10"
-          model: "Web Client"
-        return_content: yes
-        status_code: 200
-      register: login_response
 
-    - name: Search for MicWilliStores service
+    - name: Get all ServiceAvailability entries
       ansible.builtin.uri:
-        url: "{{ dwp_url }}/dwp/rest/serviceavailability/"
+        url: "{{ base_url }}/update"
         method: GET
+        user: "{{ username }}"
+        password: "{{ password }}"
+        force_basic_auth: yes
         headers:
           X-Requested-By: XMLHttpRequest
         return_content: yes
         status_code: 200
-      register: service_list
+      register: all_services
 
-    - name: Extract MicWilliStores service ID (if exists)
+    - name: Parse JSON to find target service
       ansible.builtin.set_fact:
-        target_service_id: >-
-          {{ (service_list.json.ServiceAvailability
-              | selectattr('name', 'equalto', 'MicWilliStores')
-              | list)[0].id | default(None) }}
+        target_service: "{{ (all_services.json | selectattr('name','equalto', target_service_name) | list)[0] }}"
+      failed_when: target_service is not defined
 
-    - name: Show found service ID
+    - name: Show ID of the target service
       ansible.builtin.debug:
-        msg: >-
-          {% if target_service_id %}
-            MicWilliStores service ID is {{ target_service_id }}
-          {% else %}
-            MicWilliStores service not found
-          {% endif %}
+        msg: "Found service '{{ target_service_name }}' with ID {{ target_service.id }}"
 
-    - name: Update MicWilliStores service availability to 10 (only if found)
+    - name: Update the availability of the target service to 10
       ansible.builtin.uri:
-        url: "{{ dwp_url }}/dwp/rest/update"
+        url: "{{ base_url }}/update"
         method: POST
+        user: "{{ username }}"
+        password: "{{ password }}"
+        force_basic_auth: yes
         headers:
           X-Requested-By: XMLHttpRequest
-          Content-Type: application/json; charset=UTF-8
+          Content-Type: "application/json; charset=UTF-8"
         body_format: json
         body:
           ServiceAvailability:
-            id: "{{ target_service_id }}"
+            id: "{{ target_service.id }}"
             changes:
               status: 10
         status_code: 200
-      when: target_service_id is not none
-      register: update_response
+        return_content: yes
+      register: update_result
 
-    - name: Show update result (if service was updated)
+    - name: Show update response
       ansible.builtin.debug:
-        var: update_response.json
-      when: target_service_id is not none
+        var: update_result.content
