@@ -29,9 +29,10 @@
         return_content: yes
       register: login_response
 
-    - name: Extract cookie string
+    - name: Combine all cookies into a single string
       ansible.builtin.set_fact:
-        cookie_header: "{{ login_response.set_cookie | regex_replace(';.*', '') }}"
+        cookie_header: >-
+          {{ login_response.set_cookie | map('regex_replace', ';.*', '') | join('; ') }}
 
     - name: Search for MicWilliStores service
       ansible.builtin.uri:
@@ -42,6 +43,14 @@
           Cookie: "{{ cookie_header }}"
         return_content: yes
       register: service_list
+
+    - name: Fail if service not found
+      ansible.builtin.fail:
+        msg: "MicWilliStores service not found!"
+      when: service_list.json.ServiceAvailability
+              | selectattr('name', 'equalto', 'MicWilliStores')
+              | list
+              | length == 0
 
     - name: Extract MicWilliStores service ID
       ansible.builtin.set_fact:
