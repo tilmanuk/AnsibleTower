@@ -2,7 +2,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/api/myit-sb"
     username: "Liam"
     password: "Password_1234"
     target_service_name: "MicWilliStores"
