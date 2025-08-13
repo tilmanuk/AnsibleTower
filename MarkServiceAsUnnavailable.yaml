@@ -1,44 +1,89 @@
-- name: Login to DWP and get token
-  ansible.builtin.uri:
-    url: https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest/users/sessions/login
-    method: POST
-    headers:
-      X-Requested-By: Ansible
-      Content-Type: application/json
-    body: |
-      {
-        "loginId": "Liam",
-        "password": "Password_1234",
-        "appName": "dwp",
-        "apiVersion": 19020000,
-        "locale": "en-US",
-        "deviceToken": "dummyToken",
-        "os": "Windows 10",
-        "model": "Web Client"
-      }
-    body_format: json
-    return_content: yes
-  register: login_response
+---
+- name: Update availability of MicWilliStores service
+  hosts: localhost
+  gather_facts: false
+  vars:
+    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
 
-- name: Store AR-JWT token
-  set_fact:
-    ar_jwt_token: "{{ login_response.json.token }}"
+  tasks:
 
-- name: Query MYIT_ALL_SERVICES with token
-  ansible.builtin.uri:
-    url: https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest/search
-    method: POST
-    headers:
-      X-Requested-By: Ansible
-      Content-Type: application/json
-      Authorization: "AR-JWT {{ ar_jwt_token }}"
-    body: |
-      {
-        "queryName": "MYIT_ALL_SERVICES",
-        "attributes": {
-          "ServiceAvailability": ["id", "name", "status"]
-        }
-      }
-    body_format: json
-    return_content: yes
-  register: search_response
+    - name: Login to DWP and get token
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/users/sessions/login"
+        method: POST
+        headers:
+          X-Requested-By: Ansible
+          Content-Type: application/json
+        body: |
+          {
+            "loginId": "Liam",
+            "password": "Password_1234",
+            "appName": "dwp",
+            "apiVersion": 19020000,
+            "locale": "en-US",
+            "deviceToken": "dummyToken",
+            "os": "Windows 10",
+            "model": "Web Client"
+          }
+        body_format: json
+        return_content: yes
+      register: login_response
+
+    - name: Store AR-JWT token
+      set_fact:
+        ar_jwt_token: "{{ login_response.json.token }}"
+
+    - name: Query MYIT_ALL_SERVICES for services
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/search"
+        method: POST
+        headers:
+          X-Requested-By: Ansible
+          Content-Type: application/json
+          Authorization: "AR-JWT {{ ar_jwt_token }}"
+        body: |
+          {
+            "queryName": "MYIT_ALL_SERVICES",
+            "attributes": {
+              "ServiceAvailability": ["id", "name", "status"]
+            }
+          }
+        body_format: json
+        return_content: yes
+      register: search_response
+
+    - name: Extract MicWilliStores service ID
+      set_fact:
+        mic_service_id: >-
+          {{
+            (search_response.json.items[0].items | selectattr('name','equalto','MicWilliStores') | list)[0].id
+          }}
+
+    - name: Show found service ID
+      ansible.builtin.debug:
+        msg: "MicWilliStores service ID is {{ mic_service_id }}"
+
+    - name: Update MicWilliStores availability to 10
+      ansible.builtin.uri:
+        url: "{{ dwp_base_url }}/update"
+        method: POST
+        headers:
+          X-Requested-By: Ansible
+          Content-Type: application/json
+          Authorization: "AR-JWT {{ ar_jwt_token }}"
+        body: |
+          {
+            "ServiceAvailability": {
+              "id": "{{ mic_service_id }}",
+              "changes": {
+                "status": 10
+              }
+            }
+          }
+        body_format: json
+        return_content: yes
+      register: update_response
+
+    - name: Show update response
+      ansible.builtin.debug:
+        var: update_response.json
