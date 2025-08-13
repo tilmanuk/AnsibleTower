@@ -9,7 +9,6 @@
     unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
-
     - name: Login to DWP and store cookies
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
@@ -34,13 +33,13 @@
     - name: Extract session cookies from login
       set_fact:
         session_cookies: >-
-          {{ login_response.cookies | dict2items 
-             | map(attribute='key') 
-             | zip(login_response.cookies | dict2items | map(attribute='value')) 
-             | map('join', '=') 
-             | join('; ') }}
+          {{ login_response.cookies
+             | dict2items
+             | map(attribute='key')
+             | zip(login_response.cookies | dict2items | map(attribute='value'))
+             | map('join', '=') | join('; ') }}
 
-    - name: Retrieve all services (MYIT_ALL_SERVICES) with retries
+    - name: Retrieve all services (MYIT_ALL_SERVICES)
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/search"
         method: POST
@@ -65,33 +64,26 @@
         return_content: yes
         status_code: 200
       register: services_response
-      retries: 3
-      delay: 5
-      until: services_response.status == 200
 
     - name: Show retrieved services JSON
-      ansible.builtin.debug:
+      debug:
         msg: "{{ services_response.json }}"
 
-- name: Find target service ID safely
-  set_fact:
-    target_service_id: >-
-      {{ (services_response.json[0].items
-          | default([]) 
-          | selectattr('name', 'equalto', target_service_name) 
-          | map(attribute='id') 
-          | list 
-          | first) 
-         | default(None) }}
-         
-- name: Show extracted service ID
-  debug:
-    msg: "Target service ID is {{ target_service_id }}"
+    - name: Find target service ID safely
+      set_fact:
+        target_service_id: >-
+          {{ (services_response.json[0].items
+              | default([])
+              | selectattr('name', 'equalto', target_service_name)
+              | map(attribute='id')
+              | list
+              | first)
+             | default(None) }}
 
-- name: Fail if target service not found
-  ansible.builtin.fail:
-    msg: "Target service '{{ target_service_name }}' not found."
-  when: target_service_id is none
+    - name: Fail if target service not found
+      fail:
+        msg: "Service '{{ target_service_name }}' not found in retrieved services."
+      when: target_service_id is none
 
     - name: Mark target service as unavailable
       ansible.builtin.uri:
@@ -110,5 +102,5 @@
       register: mark_unavailable_response
 
     - name: Show response from marking service unavailable
-      ansible.builtin.debug:
+      debug:
         msg: "{{ mark_unavailable_response.json }}"
