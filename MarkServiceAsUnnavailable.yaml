@@ -1,74 +1,69 @@
 ---
-- name: Update availability of MicWilliStores service
+- name: Retrieve MicWilliStores service ID from DWP
   hosts: localhost
   gather_facts: false
   vars:
-    base_url: "https://helixdemoash626-itom-demo.onbmc.com/myit-sb"
-    username: "Liam"
-    password: "Password_1234"
+    base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    login_payload:
+      loginId: "Liam"
+      password: "Password_1234"
+      appName: "dwp"
+      apiVersion: 19020000
+      locale: "en-US"
+      deviceToken: "dummyToken"
+      os: "Windows 10"
+      model: "Web Client"
+    search_payload:
+      queryName: "MYIT_ALL_SERVICES"
+      attributes:
+        ServiceAvailability:
+          - id
+          - linkedServiceId
+          - linkedServiceName
+          - name
+          - annotation
+          - status
+          - externalStatus
+          - isEnabled
+          - statusIsManual
     target_service_name: "MicWilliStores"
 
   tasks:
-    - name: Authenticate and obtain session token
+    - name: Login to DWP and get cookies
       ansible.builtin.uri:
-        url: "{{ base_url }}/users/login"
+        url: "{{ base_url }}/users/sessions/login"
         method: POST
         headers:
           Content-Type: "application/json; charset=UTF-8"
-          X-Requested-By: "Ansible"
+          X-Requested-By: "XMLHttpRequest"
+        body: "{{ login_payload }}"
         body_format: json
-        body:
-          id: "{{ username }}"
-          password: "{{ password }}"
         return_content: yes
         status_code: 200
       register: login_response
 
-    - name: Extract session token
+    - name: Store cookies for subsequent requests
       set_fact:
-        session_token: "{{ login_response.json.token }}"
+        dwp_cookies: "{{ login_response.cookies }}"
 
-    - name: Search for MicWilliStores service
+    - name: Query MYIT_ALL_SERVICES
       ansible.builtin.uri:
-        url: "{{ base_url }}/serviceavailability/"
-        method: GET
-        headers:
-          X-Requested-By: "Ansible"
-          Authorization: "Bearer {{ session_token }}"
-        return_content: yes
-        status_code: 200
-      register: service_list
-
-    - name: Extract service ID for MicWilliStores
-      set_fact:
-        target_service_id: "{{ (service_list.json.ServiceAvailability | selectattr('name', 'equalto', target_service_name) | list)[0].id }}"
-      when: service_list.json.ServiceAvailability is defined
-
-    - name: Show service ID
-      ansible.builtin.debug:
-        msg: "Found service '{{ target_service_name }}' with ID {{ target_service_id }}"
-      when: target_service_id is defined
-
-    - name: Update service availability to 10
-      ansible.builtin.uri:
-        url: "{{ base_url }}/update"
+        url: "{{ base_url }}/search"
         method: POST
         headers:
           Content-Type: "application/json; charset=UTF-8"
-          X-Requested-By: "Ansible"
-          Authorization: "Bearer {{ session_token }}"
+          X-Requested-By: "XMLHttpRequest"
+        body: "{{ search_payload }}"
         body_format: json
-        body:
-          ServiceAvailability:
-            id: "{{ target_service_id }}"
-            changes:
-              status: 10
         return_content: yes
         status_code: 200
-      when: target_service_id is defined
-      register: update_response
+        cookies: "{{ dwp_cookies }}"
+      register: search_response
 
-    - name: Show update response
+    - name: Extract service ID for MicWilliStores
+      set_fact:
+        micwilli_id: "{{ (search_response.json[0].items | selectattr('name', 'equalto', target_service_name) | list)[0].id }}"
+
+    - name: Show MicWilliStores ID
       ansible.builtin.debug:
-        var: update_response
-      when: target_service_id is defined
+        msg: "Service '{{ target_service_name }}' has ID: {{ micwilli_id }}"
