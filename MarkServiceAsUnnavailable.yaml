@@ -3,54 +3,43 @@
   hosts: localhost
   gather_facts: no
   vars:
-    base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
-    username: "Liam"
-    password: "Password_1234"
+    dwp_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    dwp_user: "Liam"
+    dwp_pass: "Password_1234"
 
   tasks:
-    - name: Authenticate to DWP and capture cookies
+    - name: Authenticate to DWP and store cookies
       ansible.builtin.uri:
-        url: "{{ base_url }}/users/sessions/login"
+        url: "{{ dwp_url }}/dwp/rest/users/sessions/login"
         method: POST
         headers:
           X-Requested-By: XMLHttpRequest
           Content-Type: application/json; charset=UTF-8
         body_format: json
         body:
-          loginId: "{{ username }}"
-          password: "{{ password }}"
+          loginId: "{{ dwp_user }}"
+          password: "{{ dwp_pass }}"
           appName: "dwp"
           apiVersion: 19020000
           locale: "en-US"
           deviceToken: "dummyToken"
           os: "Windows 10"
           model: "Web Client"
-        status_code: 200
         return_content: yes
+        status_code: 200
+        create_cookie: yes
       register: login_response
-
-    - name: Combine all cookies into a single string
-      ansible.builtin.set_fact:
-        cookie_header: >-
-          {{ login_response.set_cookie | map('regex_replace', ';.*', '') | join('; ') }}
 
     - name: Search for MicWilliStores service
       ansible.builtin.uri:
-        url: "{{ base_url }}/serviceavailability"
+        url: "{{ dwp_url }}/dwp/rest/serviceavailability/"
         method: GET
         headers:
           X-Requested-By: XMLHttpRequest
-          Cookie: "{{ cookie_header }}"
         return_content: yes
+        status_code: 200
+        use_cookies: yes
       register: service_list
-
-    - name: Fail if service not found
-      ansible.builtin.fail:
-        msg: "MicWilliStores service not found!"
-      when: service_list.json.ServiceAvailability
-              | selectattr('name', 'equalto', 'MicWilliStores')
-              | list
-              | length == 0
 
     - name: Extract MicWilliStores service ID
       ansible.builtin.set_fact:
@@ -59,14 +48,17 @@
               | selectattr('name', 'equalto', 'MicWilliStores')
               | list)[0].id }}
 
+    - name: Show found service ID
+      ansible.builtin.debug:
+        msg: "MicWilliStores service ID is {{ target_service_id }}"
+
     - name: Update MicWilliStores service availability to 10
       ansible.builtin.uri:
-        url: "{{ base_url }}/update"
+        url: "{{ dwp_url }}/dwp/rest/update"
         method: POST
         headers:
           X-Requested-By: XMLHttpRequest
           Content-Type: application/json; charset=UTF-8
-          Cookie: "{{ cookie_header }}"
         body_format: json
         body:
           ServiceAvailability:
@@ -74,3 +66,9 @@
             changes:
               status: 10
         status_code: 200
+        use_cookies: yes
+      register: update_response
+
+    - name: Show update result
+      ansible.builtin.debug:
+        var: update_response.json
