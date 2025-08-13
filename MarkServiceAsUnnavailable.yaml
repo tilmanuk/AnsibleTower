@@ -9,6 +9,7 @@
     unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
+
     - name: Login to DWP and store cookies
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/users/sessions/login"
@@ -33,9 +34,13 @@
     - name: Extract session cookies from login
       set_fact:
         session_cookies: >-
-          {{ login_response.cookies | dict2items | map(attribute='key') | zip(login_response.cookies | dict2items | map(attribute='value')) | map('join', '=') | join('; ') }}
+          {{ login_response.cookies | dict2items 
+             | map(attribute='key') 
+             | zip(login_response.cookies | dict2items | map(attribute='value')) 
+             | map('join', '=') 
+             | join('; ') }}
 
-    - name: Retrieve all services (MYIT_ALL_SERVICES)
+    - name: Retrieve all services (MYIT_ALL_SERVICES) with retries
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/search"
         method: POST
@@ -71,12 +76,17 @@
     - name: Find target service ID safely
       set_fact:
         target_service_id: >-
-          {{ (services_response.json[0].items | selectattr('name','equalto', target_service_name) | map(attribute='id') | list | first) 
-             if services_response.json and services_response.json[0].items is defined else None }}
+          {{
+            (services_response.json[0].items | default([])
+             | selectattr('name', 'equalto', target_service_name)
+             | map(attribute='id')
+             | list
+             | first) | default(None)
+          }}
 
     - name: Fail if target service not found
       ansible.builtin.fail:
-        msg: "Target service '{{ target_service_name }}' not found in retrieved services."
+        msg: "Target service '{{ target_service_name }}' not found."
       when: target_service_id is none
 
     - name: Mark target service as unavailable
