@@ -9,49 +9,66 @@
     target_service_name: "MicWilliStores"
 
   tasks:
-
-    - name: Get all ServiceAvailability entries
+    - name: Authenticate and obtain session token
       ansible.builtin.uri:
-        url: "{{ base_url }}/update"
-        method: GET
-        user: "{{ username }}"
-        password: "{{ password }}"
-        force_basic_auth: yes
+        url: "{{ base_url }}/users/login"
+        method: POST
         headers:
-          X-Requested-By: XMLHttpRequest
+          Content-Type: "application/json; charset=UTF-8"
+          X-Requested-By: "Ansible"
+        body_format: json
+        body:
+          id: "{{ username }}"
+          password: "{{ password }}"
         return_content: yes
         status_code: 200
-      register: all_services
+      register: login_response
 
-    - name: Parse JSON to find target service
-      ansible.builtin.set_fact:
-        target_service: "{{ (all_services.json | selectattr('name','equalto', target_service_name) | list)[0] }}"
-      failed_when: target_service is not defined
+    - name: Extract session token
+      set_fact:
+        session_token: "{{ login_response.json.token }}"
 
-    - name: Show ID of the target service
+    - name: Search for MicWilliStores service
+      ansible.builtin.uri:
+        url: "{{ base_url }}/serviceavailability/"
+        method: GET
+        headers:
+          X-Requested-By: "Ansible"
+          Authorization: "Bearer {{ session_token }}"
+        return_content: yes
+        status_code: 200
+      register: service_list
+
+    - name: Extract service ID for MicWilliStores
+      set_fact:
+        target_service_id: "{{ (service_list.json.ServiceAvailability | selectattr('name', 'equalto', target_service_name) | list)[0].id }}"
+      when: service_list.json.ServiceAvailability is defined
+
+    - name: Show service ID
       ansible.builtin.debug:
-        msg: "Found service '{{ target_service_name }}' with ID {{ target_service.id }}"
+        msg: "Found service '{{ target_service_name }}' with ID {{ target_service_id }}"
+      when: target_service_id is defined
 
-    - name: Update the availability of the target service to 10
+    - name: Update service availability to 10
       ansible.builtin.uri:
         url: "{{ base_url }}/update"
         method: POST
-        user: "{{ username }}"
-        password: "{{ password }}"
-        force_basic_auth: yes
         headers:
-          X-Requested-By: XMLHttpRequest
           Content-Type: "application/json; charset=UTF-8"
+          X-Requested-By: "Ansible"
+          Authorization: "Bearer {{ session_token }}"
         body_format: json
         body:
           ServiceAvailability:
-            id: "{{ target_service.id }}"
+            id: "{{ target_service_id }}"
             changes:
               status: 10
-        status_code: 200
         return_content: yes
-      register: update_result
+        status_code: 200
+      when: target_service_id is defined
+      register: update_response
 
     - name: Show update response
       ansible.builtin.debug:
-        var: update_result.content
+        var: update_response
+      when: target_service_id is defined
