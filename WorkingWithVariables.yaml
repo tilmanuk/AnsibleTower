@@ -1,0 +1,10 @@
+- name: Hello World with a variable
+  hosts: localhost
+  gather_facts: false
+  vars:
+    myVar: "{{ greeting | default('Hello, World!') }}"
+
+  tasks:
+    - name: Print myVar to STDOUT
+      ansible.builtin.debug:
+        msg: "{{ myVar }}"
