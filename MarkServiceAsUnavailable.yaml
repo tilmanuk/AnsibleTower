@@ -5,7 +5,7 @@
     dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
-    target_service_name: "MicWilliStores"
+    target_service_name: "{{ ServiceName }}"
     unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
