@@ -69,10 +69,6 @@
       delay: 5
       until: services_response.status == 200
 
-    - name: Show retrieved services JSON
-      ansible.builtin.debug:
-        msg: "{{ services_response.json }}"
-
     - name: Find target service ID safely
       set_fact:
         target_service_id: >-
@@ -106,7 +102,7 @@
           ServiceAvailability:
             id: "{{ target_service_id }}"
             changes:
-              status: 10
+              status: 60
         return_content: yes
         status_code: 200
       register: mark_unavailable_response
@@ -114,5 +110,6 @@
     - name: Show response from marking service unavailable
       ansible.builtin.debug:
         msg: "{{ mark_unavailable_response.json }}"
+
 
 
