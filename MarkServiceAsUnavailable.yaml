@@ -2,6 +2,7 @@
   hosts: localhost
   gather_facts: false
   vars:
+    BaseURL: "{{ BaseURL | default('helixdemoash626') }}"
     dwp_base_url: "https://{{ BaseURL }}-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
@@ -115,4 +116,5 @@
       ansible.builtin.debug:
 
         msg: "{{ mark_unavailable_response.json }}"
+
 
