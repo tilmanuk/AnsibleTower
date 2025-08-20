@@ -4,14 +4,14 @@
   vars:
     username: "Liam"
     password: "Password_1234"
-    target_service_name: "{{ ServiceName }}"
+    target_service_name: "{{ servicename }}"
     unavailable_annotation: "Marked unavailable by BMC Helix"
 
   tasks:
 
     - name: Build DWP base URL from input
       set_fact:
-        dwp_base_url: "https://{{ BaseURL | default('helixdemoash626') }}-demo-dwp.onbmc.com/dwp/rest"
+        dwp_base_url: "https://{{ baseurl | default('helixdemoash626') }}-demo-dwp.onbmc.com/dwp/rest"
 
     - name: Show what base URL will be used
       debug:
@@ -122,6 +122,7 @@
       ansible.builtin.debug:
 
         msg: "{{ mark_unavailable_response.json }}"
+
 
 
 
