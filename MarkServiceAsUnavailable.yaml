@@ -2,11 +2,12 @@
   hosts: localhost
   gather_facts: false
   vars:
-    dwp_base_url: "https://helixdemoash626-demo-dwp.onbmc.com/dwp/rest"
+    BaseURL: "{{ BaseURL | default('helixdemoash626') }}"
+    dwp_base_url: "https://{{ BaseURL }}-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
     target_service_name: "{{ ServiceName }}"
-    unavailable_annotation: "Marked unavailable by Ansible"
+    unavailable_annotation: "Marked unavailable by BMC Helix"
 
   tasks:
 
@@ -113,4 +114,5 @@
 
     - name: Show response from marking service unavailable
       ansible.builtin.debug:
+
         msg: "{{ mark_unavailable_response.json }}"
