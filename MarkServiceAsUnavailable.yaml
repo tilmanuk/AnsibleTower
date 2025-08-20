@@ -3,6 +3,7 @@
   gather_facts: false
   vars:
     dwp_base_url: "https://helixdemoash2607-demo-dwp.onbmc.com/dwp/rest"
+    base_url: "{{ BaseURL }}"
     username: "Liam"
     password: "Password_1234"
     target_service_name: "{{ ServiceName }}"
@@ -10,8 +11,11 @@
 
   tasks:
     - name: Test building of a DWP URL using a variable
-      myURL: "{{ BaseURL }}"
-      msg: "Here's the URL: '{{ myURL }}'"
+      set_fact:
+        myURL: "https://{{ base_url }}-demo-dwp.onbmc.com/dwp/rest"
+
+    -name: Print out the URL
+      msg: "Here's the URL: {{ myURL }}"
 
     - name: Login to DWP and store cookies
       ansible.builtin.uri:
@@ -113,6 +117,7 @@
     - name: Show response from marking service unavailable
       ansible.builtin.debug:
         msg: "{{ mark_unavailable_response.json }}"
+
 
 
 
