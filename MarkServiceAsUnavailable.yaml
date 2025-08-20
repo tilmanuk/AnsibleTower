@@ -9,6 +9,9 @@
     unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
+    - name: Test building of a DWP URL using a variable
+      myURL: "{{ BaseURL }}"
+      msg: "Here's the URL: '{{ myURL }}'"
 
     - name: Login to DWP and store cookies
       ansible.builtin.uri:
@@ -110,6 +113,7 @@
     - name: Show response from marking service unavailable
       ansible.builtin.debug:
         msg: "{{ mark_unavailable_response.json }}"
+
 
 
 
