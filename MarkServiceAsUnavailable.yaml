@@ -2,8 +2,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    base_url: {{ BaseURL }}
-    dwp_base_url: "https://{{ base_url }}-demo-dwp.onbmc.com/dwp/rest"
+    dwp_base_url: "https://helixdemoash2607-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
     target_service_name: "{{ ServiceName }}"
@@ -115,4 +114,5 @@
     - name: Show response from marking service unavailable
       ansible.builtin.debug:
         msg: "{{ mark_unavailable_response.json }}"
+
 
