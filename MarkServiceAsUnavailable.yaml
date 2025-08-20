@@ -2,20 +2,13 @@
   hosts: localhost
   gather_facts: false
   vars:
+    dwp_base_url: "https://helixdemoash2607-demo-dwp.onbmc.com/dwp/rest"
     username: "Liam"
     password: "Password_1234"
-    target_service_name: "{{ servicename }}"
-    unavailable_annotation: "Marked unavailable by BMC Helix"
+    target_service_name: "{{ ServiceName }}"
+    unavailable_annotation: "Marked unavailable by Ansible"
 
   tasks:
-
-    - name: Build DWP base URL from input
-      set_fact:
-        dwp_base_url: "https://{{ baseurl | default('helixdemoash626') }}-demo-dwp.onbmc.com/dwp/rest"
-
-    - name: Show what base URL will be used
-      debug:
-        msg: "Using DWP base URL: {{ dwp_base_url }}"
 
     - name: Login to DWP and store cookies
       ansible.builtin.uri:
@@ -113,18 +106,11 @@
           ServiceAvailability:
             id: "{{ target_service_id }}"
             changes:
-              status: 60
+              status: 10
         return_content: yes
         status_code: 200
       register: mark_unavailable_response
 
     - name: Show response from marking service unavailable
       ansible.builtin.debug:
-
         msg: "{{ mark_unavailable_response.json }}"
-
-
-
-
-
-
