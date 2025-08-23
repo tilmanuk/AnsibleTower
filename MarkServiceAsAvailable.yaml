@@ -69,10 +69,6 @@
       delay: 5
       until: services_response.status == 200
 
-    - name: Show retrieved services JSON
-      ansible.builtin.debug:
-        msg: "{{ services_response.json }}"
-
     - name: Find target service ID safely
       set_fact:
         target_service_id: >-
