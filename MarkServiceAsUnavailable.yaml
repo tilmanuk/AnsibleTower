@@ -6,7 +6,7 @@
     username: "Liam"
     password: "Password_1234"
     target_service_name: "{{ ServiceName }}"
-    unavailable_annotation: "Marked unavailable by Ansible"
+    unavailable_annotation: "Marked unavailable by MicWilliAutomation"
 
   tasks:
   
