@@ -89,7 +89,7 @@
         msg: "Target service '{{ target_service_name }}' not found."
       when: target_service_id is none
 
-    - name: Mark target service as unavailable
+    - name: Mark target service as available
       ansible.builtin.uri:
         url: "{{ dwp_base_url }}/update"
         method: POST
@@ -107,7 +107,7 @@
         status_code: 200
       register: mark_unavailable_response
 
-    - name: Show response from marking service unavailable
+    - name: Show response from marking service available
       ansible.builtin.debug:
 
         msg: "{{ mark_unavailable_response.json }}"
