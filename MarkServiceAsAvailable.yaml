@@ -1,4 +1,4 @@
-- name: Mark a DWP Service as Unavailable
+- name: Mark a DWP Service as Available
   hosts: localhost
   gather_facts: false
   vars:
