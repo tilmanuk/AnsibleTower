@@ -1,5 +1,5 @@
 - name: Update Windows Service By Name and State
-  hosts: "{{ TargetHost }}
+  hosts: "{{ TargetHost }}"
   gather_facts: no
   tasks:
     - name: Update Windows Service by State
