@@ -6,3 +6,9 @@
       ansible.windows.win_service:
         name: "{{ WindowsServiceName }}"
         state: "{{ ServiceState }}"
+        register: service_update
+
+    - name: Show confirmation message
+      ansible.builtin.debug:
+        msg: >
+          Host '{{ inventory_hostname }}' updated service '{{ WindowsServiceName }}' to state '{{ ServiceState }}'.
