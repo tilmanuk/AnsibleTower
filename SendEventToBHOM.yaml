@@ -1,0 +1,65 @@
+---
+- name: Send Event to BHOM
+  hosts: localhost
+  gather_facts: false
+  vars:
+    myURL: helixdemoash2715-itom-demo.onbmc.com
+    myAccessKey: KGWGJMGSBQJC8LAPW3G5NWBE0C81VV
+    myAccessSecretKey: FEQFW6DgvW3NZN1Mcikg2cjAev1iRAGwUJ6MB82I3TEDsTdRfj
+    myNumber: "{{ '891' ~ '%05d' | format(lookup('random', '0,99999')) }}"
+    login_url: "https://{{ myURL }}/ims/api/v1/access_keys/login"
+    event_url: "https://{{ myURL }}/events-service/api/v1.0/events"
+    event_payload:
+      - class: DynatraceAlert
+        _relationships: "{rstat=norelation}"
+        msg: "P-{{ myNumber }} AH00526: Syntax error on line 15 of /etc/httpd/conf.d/vhost.conf: <VirtualHost> directive must be followed by a valid address and port (for example, '*:80' or '192.168.1.1:80')"
+        details: "AH00526: Syntax error on line 15 of /etc/httpd/conf.d/vhost.conf: <VirtualHost> directive must be followed by a valid address and port (for example, '*:80' or '192.168.1.1:80')"
+        problemDisplayID: "P-{{ myNumber }}"
+        priority: PRIORITY_3
+        severity: HIGH
+        rootCauseEntityCiDisplayName: micwillipatrol
+        rootCauseEntityCiUniqueId: PROCESS_GROUP-4DF1F2E5D4EBC19F
+        source_identifier: DYNATRACE_PROCESS_GROUP-PROCESS_GROUP-4DF1F2E5D4EBC19F
+        source_hostname: micwillipatrol
+        source: REST V2 API Pull
+        status: OPEN
+        category: OPERATIONS_MANAGEMENT
+        source_attributes:
+          source_hostname: micwillipatrol
+          source_port: "<port>"
+          source_address: "<ip_address>"
+
+  tasks:
+    - name: Get JWT token from BHOM
+      uri:
+        url: "{{ login_url }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          access_key: "{{ myAccessKey }}"
+          access_secret_key: "{{ myAccessSecretKey }}"
+        return_content: yes
+        validate_certs: yes
+      register: login_response
+
+    - name: Set JWT token fact
+      set_fact:
+        bhom_token: "Bearer {{ (login_response.json.json_web_token) }}"
+
+    - name: Send event to BHOM
+      uri:
+        url: "{{ event_url }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+          Authorization: "{{ bhom_token }}"
+        body: "{{ event_payload | to_json }}"
+        return_content: yes
+        validate_certs: yes
+      register: event_response
+
+    - name: Print BHOM response
+      debug:
+        msg: "{{ event_response.content | default(event_response.json) }}"
