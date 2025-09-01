@@ -6,7 +6,7 @@
     myURL: helixdemoash2715-itom-demo.onbmc.com
     myAccessKey: KGWGJMGSBQJC8LAPW3G5NWBE0C81VV
     myAccessSecretKey: FEQFW6DgvW3NZN1Mcikg2cjAev1iRAGwUJ6MB82I3TEDsTdRfj
-    myNumber: "{{ '891' ~ '%05d' | format(lookup('random', '0,99999')) }}"
+    myNumber: "891-602373"
     login_url: "https://{{ myURL }}/ims/api/v1/access_keys/login"
     event_url: "https://{{ myURL }}/events-service/api/v1.0/events"
     event_payload:
