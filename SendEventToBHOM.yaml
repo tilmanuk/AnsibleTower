@@ -3,6 +3,9 @@
   hosts: localhost
   gather_facts: false
   vars:
+    # Following API Key is disabled. Admin account required to activate
+    # The 'myURL' parameter specifies the base URL for the Helix ITOM demo environment.
+    # Replace the value with your target environment's URL as needed.
     myURL: helixdemoash2715-itom-demo.onbmc.com
     myAccessKey: KGWGJMGSBQJC8LAPW3G5NWBE0C81VV
     myAccessSecretKey: FEQFW6DgvW3NZN1Mcikg2cjAev1iRAGwUJ6MB82I3TEDsTdRfj
