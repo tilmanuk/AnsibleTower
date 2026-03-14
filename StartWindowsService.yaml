@@ -1,5 +1,5 @@
 - name: Start Windows Azure Guest Agent Service
-  hosts: MicWilliPatrol
+  hosts: MicWilliServer
   gather_facts: no
   tasks:
     - name: Start WindowsAzureGuestAgent service
